@@ -17,21 +17,45 @@
   .wob { animation: wob 2.4s ease-in-out infinite; display:inline-block; }
   @keyframes bye { to { transform: scale(.6) translateY(-20px); opacity:0; } }
   .bye { animation: bye .35s ease-in forwards; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
+  .shake { animation: shake .4s ease-in-out; }
+  @keyframes blink { 50% { border-color:#bae6fd; } }
+  .cur { animation: blink 1s step-end infinite; }
   .noscroll::-webkit-scrollbar{display:none} .noscroll{scrollbar-width:none}
 </style>
 </head>
 <body class="flex flex-col items-center p-3 gap-3 text-slate-800">
 
-<header class="w-full max-w-lg bg-white rounded-3xl shadow-md p-3 flex items-center justify-between border-2 border-sky-100">
+<header class="w-full max-w-lg bg-white rounded-3xl shadow-md p-3 flex items-center justify-between gap-2 border-2 border-sky-100">
   <div class="flex items-center gap-2">
-    <span class="text-2xl wob">📅</span>
+    <span class="text-xl sm:text-2xl wob">📅</span>
     <div>
-      <h1 class="font-black text-base text-sky-600 leading-tight">매일 영단어</h1>
-      <p class="text-[10px] font-bold text-slate-400">4살부터 대학까지, 하루하루 쌓는 영어</p>
+      <h1 class="font-black text-sm sm:text-base text-sky-600 leading-tight whitespace-nowrap">매일 영단어</h1>
+      <p class="hidden sm:block text-[10px] font-bold text-slate-400">4살부터 대학까지, 하루하루 쌓는 영어</p>
     </div>
   </div>
-  <button id="btnToday" class="px-3 py-1.5 rounded-2xl bg-amber-100 border border-amber-300 text-amber-700 text-xs font-black bounce">⭐ 오늘로</button>
+  <div class="flex items-center gap-1.5">
+    <button id="btnUser" class="px-2.5 py-1.5 rounded-2xl bg-sky-100 border border-sky-300 text-sky-700 text-xs font-black bounce max-w-[92px] truncate">🔑 로그인</button>
+    <button id="btnToday" class="px-2.5 py-1.5 rounded-2xl bg-amber-100 border border-amber-300 text-amber-700 text-xs font-black bounce whitespace-nowrap">⭐ 오늘</button>
+    <button id="btnQuiz" class="px-2.5 py-1.5 rounded-2xl bg-rose-500 border border-rose-600 text-white text-xs font-black bounce shadow whitespace-nowrap">📝 시험치기</button>
+  </div>
 </header>
+
+<!-- 로그인 창 -->
+<div id="loginModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+  <div class="w-full max-w-xs bg-white rounded-3xl shadow-xl p-5 border-4 border-sky-100">
+    <div class="text-center text-4xl mb-1 wob">🐣</div>
+    <h2 id="lmTitle" class="text-center font-black text-lg text-sky-600 mb-3">로그인</h2>
+    <label class="block text-xs font-black text-slate-500 mb-1">별명</label>
+    <input id="lmNick" maxlength="12" autocomplete="username" class="w-full mb-3 px-3 py-2.5 rounded-2xl border-2 border-sky-100 focus:border-sky-400 outline-none font-bold" placeholder="한글·영어·숫자 2~12자">
+    <label class="block text-xs font-black text-slate-500 mb-1">비밀번호</label>
+    <input id="lmPw" type="password" maxlength="32" autocomplete="current-password" class="w-full mb-2 px-3 py-2.5 rounded-2xl border-2 border-sky-100 focus:border-sky-400 outline-none font-bold" placeholder="4자 이상">
+    <p id="lmMsg" class="min-h-[18px] text-xs font-bold text-rose-500 mb-2"></p>
+    <button id="lmGo" class="w-full py-2.5 rounded-2xl bg-sky-500 text-white font-black bounce">로그인</button>
+    <button id="lmSwitch" class="w-full mt-2 py-2 rounded-2xl bg-amber-50 text-amber-700 text-sm font-black">처음이에요! 가입하기</button>
+    <button id="lmClose" class="w-full mt-1 py-1.5 text-xs font-bold text-slate-400">나중에 할게요</button>
+  </div>
+</div>
 
 <nav id="stageTabs" class="w-full max-w-lg grid grid-cols-5 gap-1.5"></nav>
 <div id="levelTabs" class="w-full max-w-lg flex gap-1.5 overflow-x-auto noscroll px-0.5 py-0.5"></div>
@@ -77,6 +101,65 @@
   <p class="text-[10px] font-bold text-slate-400 text-center">✅ 그날 단어를 다 외운 날 · ⭐ 오늘</p>
 </section>
 
+<!-- ===== 시험치기 ===== -->
+<div id="quiz" class="hidden fixed inset-0 z-40 overflow-y-auto" style="background:linear-gradient(180deg,#fce7f3 0%,#e0f2fe 100%)">
+ <div class="min-h-full flex flex-col items-center p-3 gap-3">
+  <div class="w-full max-w-lg bg-white rounded-3xl shadow-md p-3 flex items-center justify-between border-2 border-rose-100">
+    <div class="flex items-center gap-2"><span class="text-2xl wob">📝</span><h1 class="font-black text-base text-rose-500">시험치기</h1></div>
+    <button id="qClose" class="px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-500 text-xs font-black bounce">✖ 닫기</button>
+  </div>
+
+  <!-- 범위 고르기 -->
+  <section id="qSetup" class="w-full max-w-lg flex flex-col gap-3 mb-6">
+    <div class="bg-white rounded-[2rem] shadow-lg p-4 border-2 border-rose-100 flex flex-col gap-3">
+      <div class="text-xs font-black text-slate-500">① 어디까지 볼까요?</div>
+      <div id="qStages" class="grid grid-cols-6 gap-1.5"></div>
+      <div id="qLevels" class="flex flex-wrap gap-1.5"></div>
+      <div class="text-xs font-black text-slate-500 mt-1">② 몇 월 단어?</div>
+      <div id="qMonthAll"></div>
+      <div id="qMonths" class="grid grid-cols-6 gap-1.5"></div>
+      <div id="qInfo" class="text-center text-xs font-black text-slate-500 bg-slate-50 rounded-2xl py-2"></div>
+      <div class="text-xs font-black text-slate-500 mt-1">③ 몇 문제? <span class="text-[10px] text-slate-400">(비워두면 전부, 순서는 랜덤)</span></div>
+      <div class="flex items-center gap-1.5">
+        <input id="qNum" type="number" inputmode="numeric" min="1" class="w-24 px-3 py-2 rounded-2xl border-2 border-rose-100 focus:border-rose-400 outline-none font-black text-center" placeholder="전부">
+        <div id="qNumChips" class="flex gap-1.5 flex-1"></div>
+      </div>
+      <button id="qStart" class="mt-1 w-full py-3.5 rounded-2xl bg-rose-500 text-white font-black text-lg shadow bounce">▶ 시험 시작</button>
+      <button id="qWrongBtn" class="w-full py-2.5 rounded-2xl bg-amber-100 text-amber-700 font-black text-sm bounce">❌ 틀린 것만 다시 풀기</button>
+    </div>
+    <div id="qLogBox" class="bg-white/80 rounded-[2rem] p-4 border border-white flex flex-col gap-1.5">
+      <div class="text-xs font-black text-slate-500">📊 최근 시험 기록</div>
+      <div id="qLogs" class="flex flex-col gap-1"></div>
+    </div>
+  </section>
+
+  <!-- 문제 풀기 -->
+  <section id="qPlay" class="hidden w-full max-w-lg flex flex-col gap-3 mb-6">
+    <div class="flex items-center gap-2 px-1">
+      <span id="qProg" class="text-xs font-black text-slate-500 whitespace-nowrap">1 / 10</span>
+      <div class="flex-1 h-3 bg-white rounded-full overflow-hidden"><div id="qBar" class="h-full bg-gradient-to-r from-rose-400 to-pink-500 rounded-full transition-all" style="width:0%"></div></div>
+      <span id="qScore" class="text-xs font-black text-emerald-600 whitespace-nowrap">⭕ 0</span>
+      <button id="qQuit" class="text-[11px] font-black text-slate-400 underline">그만</button>
+    </div>
+    <div id="qCard" class="bg-white rounded-[2rem] shadow-xl p-5 border-4 border-rose-200 flex flex-col items-center gap-3">
+      <div id="qWhere" class="self-start text-[10px] font-black text-slate-300"></div>
+      <div id="qPic" class="h-20 flex items-center"></div>
+      <div id="qKor" class="text-2xl font-black text-slate-800 text-center leading-snug"></div>
+      <div id="qSlots" class="flex flex-wrap justify-center gap-1 min-h-[3.5rem] items-center"></div>
+      <div id="qMsg" class="min-h-[1.5rem] text-sm font-black text-center"></div>
+      <div class="flex gap-2 w-full">
+        <button id="qSay" class="flex-1 py-2.5 rounded-2xl bg-sky-100 text-sky-600 font-black text-sm bounce">🔊 듣기</button>
+        <button id="qHint" class="flex-1 py-2.5 rounded-2xl bg-amber-100 text-amber-700 font-black text-sm bounce">💡 힌트</button>
+      </div>
+    </div>
+    <div id="qKb" class="bg-white/90 rounded-[1.5rem] p-2 shadow-lg flex flex-col gap-1.5"></div>
+  </section>
+
+  <!-- 결과 -->
+  <section id="qEnd" class="hidden w-full max-w-lg flex flex-col gap-3 mb-6"></section>
+ </div>
+</div>
+
 <script>
 const STAGES = [
   { id:'k', name:'유치원', emoji:'🧸', levels:['4살','5살','6살','7살'], perDay:1, color:'bg-pink-400' },
@@ -89,7 +172,11 @@ const BADGE_COLORS = ['bg-rose-100 text-rose-500','bg-amber-100 text-amber-600',
 const MD = [31,28,31,30,31,30,31,31,30,31,30,31];
 const now = new Date();
 const store = { get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch(e){return d;} }, set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} } };
-let memo = new Set(store.get('memorized', []));
+// ---------- 서버 (로그인) ----------
+const API = 'https://engkor.duckdns.org';
+let auth = store.get('auth', null);            // {token, nick}
+const memoKey = () => auth ? 'memo_' + auth.nick.toLowerCase() : 'memorized';
+let memo = new Set(store.get(memoKey(), []));
 let st = store.get('stage', 0), lv = store.get('level', 0);
 let mon = now.getMonth()+1, day = now.getDate();
 let showDone = false, reviewShown = 12;
@@ -126,7 +213,7 @@ window.say = w => speak(w);
 // ---------- 외움 ----------
 window.toggleMemo = (w, el) => {
   const k = w.toLowerCase();
-  const done = () => { if (memo.has(k)) memo.delete(k); else memo.add(k); store.set('memorized', [...memo]); renderAll(); };
+  const done = () => { const on = !memo.has(k); if (on) memo.add(k); else memo.delete(k); store.set(memoKey(), [...memo]); queueSync(k, on); renderAll(); };
   const card = el && el.closest('[data-card]');
   if (card && !memo.has(k)) { card.classList.add('bye'); setTimeout(done, 320); } else done();
 };
@@ -224,7 +311,318 @@ window.setDay = d => { day=d; reviewShown=12; renderAll(); window.scrollTo({top:
 btnToday.onclick = () => { mon=now.getMonth()+1; day=now.getDate(); reviewShown=12; renderAll(); };
 btnShowDone.onclick = () => { showDone=!showDone; renderCards(); };
 btnMore.onclick = () => { reviewShown += 24; renderReview(); };
+
+// ---------- 로그인 / 서버 저장 ----------
+async function api(path, body){
+  const r = await fetch(API + path, { method: body ? 'POST' : 'GET',
+    headers: Object.assign({'Content-Type':'application/json'}, auth ? {Authorization:'Bearer '+auth.token} : {}),
+    body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) { const e = new Error(j.error || '서버 연결이 안 돼요'); e.status = r.status; throw e; }
+  return j;
+}
+// 체크할 때마다 서버로. 인터넷이 끊기면 모아 뒀다가 나중에 보냄
+function queueSync(k, on){
+  if (!auth) return;
+  const pend = store.get('pending', {}); pend[k] = on; store.set('pending', pend);
+  flush();
+}
+let flushing = false;
+async function flush(){
+  if (!auth || flushing) return;
+  const pend = store.get('pending', {}); const ks = Object.keys(pend); if (!ks.length) return;
+  flushing = true;
+  try {
+    await api('/api/memo', { add: ks.filter(k=>pend[k]), del: ks.filter(k=>!pend[k]) });
+    const now2 = store.get('pending', {}); ks.forEach(k=>{ if (now2[k]===pend[k]) delete now2[k]; }); store.set('pending', now2);
+  } catch(e){ if (e.status===401) logout(true); }
+  flushing = false;
+  if (Object.keys(store.get('pending', {})).length && auth) setTimeout(flush, 15000);
+}
+async function pull(){
+  if (!auth) return;
+  try {
+    await flush();
+    const j = await api('/api/memo');
+    const pend = store.get('pending', {});
+    memo = new Set(j.words); Object.keys(pend).forEach(k=> pend[k] ? memo.add(k) : memo.delete(k));
+    store.set(memoKey(), [...memo]); renderAll();
+  } catch(e){ if (e.status===401) logout(true); }
+}
+function renderUser(){ btnUser.textContent = auth ? '👤 ' + auth.nick : '🔑 로그인'; }
+function logout(expired){
+  if (auth) api('/api/logout', {}).catch(()=>{});
+  auth = null; store.set('auth', null); store.set('pending', {});
+  store.set('qpending', []); store.set('qplog', []); qReload();
+  memo = new Set(store.get(memoKey(), [])); renderUser(); renderAll();
+  if (expired) openLogin('다시 로그인해 주세요');
+}
+let signup = false;
+function setMode(){ lmTitle.textContent = signup ? '가입하기' : '로그인'; lmGo.textContent = signup ? '가입하고 시작!' : '로그인';
+  lmSwitch.textContent = signup ? '이미 있어요! 로그인하기' : '처음이에요! 가입하기'; lmMsg.textContent=''; }
+function openLogin(msg){ signup=false; setMode(); lmMsg.textContent = msg||''; loginModal.classList.remove('hidden'); setTimeout(()=>lmNick.focus(),50); }
+btnUser.onclick = () => { if (!auth) return openLogin(); if (confirm(auth.nick + ' 로그아웃할까요?')) logout(); };
+lmSwitch.onclick = () => { signup = !signup; setMode(); };
+lmClose.onclick = () => loginModal.classList.add('hidden');
+lmPw.onkeydown = e => { if (e.key==='Enter') lmGo.click(); };
+lmGo.onclick = async () => {
+  const nick = lmNick.value.trim(), pw = lmPw.value;
+  if (!/^[가-힣a-zA-Z0-9_]{2,12}$/.test(nick)) { lmMsg.textContent='별명은 한글·영어·숫자 2~12자예요'; return; }
+  if (pw.length < 4) { lmMsg.textContent='비밀번호는 4자 이상이에요'; return; }
+  lmGo.disabled = true; lmMsg.textContent = '';
+  try {
+    const guest = [...new Set(store.get('memorized', []))];
+    const j = await api(signup ? '/api/signup' : '/api/login', { nick, pw });
+    auth = { token: j.token, nick: j.nick }; store.set('auth', auth);
+    // 로그인 전에 이 기기에서 외운 단어도 내 계정으로 합치기
+    if (guest.length) { await api('/api/memo', { add: guest }).catch(()=>{}); store.set('memorized', []); }
+    memo = new Set(store.get(memoKey(), []));
+    loginModal.classList.add('hidden'); lmPw.value=''; renderUser(); renderAll(); pull(); qReload(); qPull();
+  } catch(e){ lmMsg.textContent = e.message; }
+  lmGo.disabled = false;
+};
+window.addEventListener('online', () => { flush(); qFlush(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { pull(); qPull(); } });
+
+// ================= 시험치기 =================
+const qKey = () => auth ? 'quiz_' + auth.nick.toLowerCase() : 'quiz_guest';
+const qLogKey = () => auth ? 'qlogs_' + auth.nick.toLowerCase() : 'qlogs_guest';
+let qres = store.get(qKey(), {});            // 단어 → [맞은 수, 틀린 수, 마지막에 맞았나(1/0)]
+function qReload(){ qres = store.get(qKey(), {}); }
+const qs = { st:0, lv:0, m:1 };              // st -1 = 전체 단계, lv -1 = 전체 학년, m 0 = 1년 전체
+let QZ = null;
+const shuffle = a => { for (let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const letters = w => w.replace(/[^a-z]/gi,'').toLowerCase();
+const mdOf = i => { let m=0; while(i>=MD[m]){ i-=MD[m]; m++; } return `${m+1}/${i+1}`; };
+
+function loadStages(list){
+  return Promise.all(list.map(i => new Promise(r => {
+    const id = STAGES[i].id;
+    if ((window.WORDS||{})[id]) return r();
+    if (loading[id]) { loading[id].push(r); return; }
+    loading[id] = [r];
+    const sc = document.createElement('script'); sc.src = `data/words_${id}.js`;
+    sc.onload = sc.onerror = () => { const l = loading[id]; loading[id] = null; l.forEach(f=>f()); };
+    document.head.appendChild(sc);
+  })));
+}
+const qStageList = () => qs.st<0 ? STAGES.map((_,i)=>i) : [qs.st];
+function qPool(){
+  const out = [];
+  qStageList().forEach(si => {
+    const S = STAGES[si], p = (window.WORDS||{})[S.id]; if (!p) return;
+    const lvs = (qs.st<0 || qs.lv<0) ? S.levels.map((_,i)=>i) : [qs.lv];
+    const a = qs.m>0 ? dayIndex(qs.m,1) : 0, b = qs.m>0 ? a + MD[qs.m-1] : 365;
+    lvs.forEach(l => { for (let d=a; d<b; d++) for (let k=0; k<S.perDay; k++) { const w = p[(l*365+d)*S.perDay+k]; if (w) out.push({ w, si, l, d }); } });
+  });
+  return out;
+}
+const isWrong = it => { const r = qres[it.w[0].toLowerCase()]; return r && r[2]===0; };
+function qTitle(){
+  const S = qs.st<0 ? null : STAGES[qs.st];
+  return (S ? S.name + ' ' + (qs.lv<0 ? '전체' : S.levels[qs.lv]) : '전체 단계') + ' · ' + (qs.m>0 ? qs.m+'월' : '1년');
+}
+function qChip(on, txt, fn, col){
+  return `<button onclick="${fn}" class="px-2 py-2 rounded-2xl text-xs font-black bounce leading-tight ${on ? col+' text-white shadow' : 'bg-white text-slate-500 border border-slate-200'}">${txt}</button>`;
+}
+window.qSet = (k, v) => { qs[k] = v; if (k==='st') qs.lv = v<0 ? -1 : 0; qRenderSetup(); };
+function qTime(at){ if(!at) return ''; const d = new Date(/[TZ]/.test(at) ? at : at.replace(' ','T')+'Z'); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function qRenderSetup(){
+  qStages.innerHTML = qChip(qs.st<0, '🌈<br>전체', "qSet('st',-1)", 'bg-purple-500') +
+    STAGES.map((S,i) => qChip(qs.st===i, S.emoji+'<br>'+S.name, `qSet('st',${i})`, S.color)).join('');
+  qLevels.innerHTML = qs.st<0 ? '<span class="text-[11px] font-bold text-slate-400">유치원~대학 모든 학년에서 골라요</span>' :
+    qChip(qs.lv<0, '전체 학년', "qSet('lv',-1)", 'bg-slate-500') + STAGES[qs.st].levels.map((n,i) => qChip(qs.lv===i, n, `qSet('lv',${i})`, STAGES[qs.st].color)).join('');
+  qMonthAll.innerHTML = qChip(qs.m===0, '📅 1년 전체', "qSet('m',0)", 'bg-indigo-500').replace('px-2 py-2','w-full px-2 py-2');
+  qMonths.innerHTML = MD.map((_,i) => qChip(qs.m===i+1, (i+1)+'월', `qSet('m',${i+1})`, 'bg-rose-400')).join('');
+  qNumChips.innerHTML = [10,20,50,100].map(n => `<button onclick="qNum.value=${n}" class="flex-1 py-2 rounded-2xl bg-rose-50 text-rose-500 text-xs font-black bounce">${n}</button>`).join('');
+  qInfo.textContent = '단어 불러오는 중…'; qStart.disabled = qWrongBtn.disabled = true;
+  loadStages(qStageList()).then(() => {
+    const pool = qPool(), wrong = pool.filter(isWrong).length;
+    qInfo.innerHTML = `${qTitle()} · 단어 <span class="text-rose-500">${pool.length}</span>개 · 틀린 단어 <span class="text-amber-600">${wrong}</span>개`;
+    qNum.placeholder = `전부(${pool.length})`;
+    qStart.disabled = !pool.length; qStart.classList.toggle('opacity-40', !pool.length);
+    qWrongBtn.disabled = !wrong; qWrongBtn.classList.toggle('opacity-40', !wrong);
+    qWrongBtn.textContent = `❌ 틀린 것만 다시 풀기 (${wrong}개)`;
+  });
+  const logs = store.get(qLogKey(), []);
+  qLogs.innerHTML = logs.length ? logs.slice(0,8).map(l => {
+    const pct = l.total ? Math.round(l.correct/l.total*100) : 0;
+    return `<div class="flex items-center gap-2 text-[11px] font-bold text-slate-500 bg-white rounded-xl px-3 py-1.5">
+      <span class="text-slate-300 w-[72px]">${qTime(l.at)}</span><span class="flex-1 truncate">${l.title}</span>
+      <span class="font-black ${pct>=80?'text-emerald-600':pct>=50?'text-amber-600':'text-rose-500'}">${l.correct}/${l.total}</span></div>`; }).join('')
+    : '<div class="text-[11px] font-bold text-slate-400">아직 기록이 없어요</div>';
+}
+function qPanel(name){ ['qSetup','qPlay','qEnd'].forEach(id => document.getElementById(id).classList.toggle('hidden', id!==name)); quiz.scrollTop = 0; }
+function qOpen(){ qs.st = st; qs.lv = lv; qs.m = mon; QZ = null; quiz.classList.remove('hidden'); document.body.style.overflow='hidden'; qPanel('qSetup'); qRenderSetup(); if (auth) qPull(); }
+function qCloseAll(){ quiz.classList.add('hidden'); document.body.style.overflow=''; QZ = null; renderAll(); }
+
+function qBegin(list, title){
+  if (!list.length) return;
+  QZ = { list, i:0, res:[], title, typed:'', tries:0, hint:false, lock:false };
+  document.activeElement && document.activeElement.blur();
+  qPanel('qPlay'); qShow();
+}
+function qStartFrom(wrongOnly){
+  let pool = qPool(); if (wrongOnly) pool = pool.filter(isWrong);
+  if (!pool.length) return;
+  const n = Math.max(1, Math.min(parseInt(qNum.value) || pool.length, pool.length));
+  qBegin(shuffle(pool).slice(0, n), qTitle() + (wrongOnly ? ' (틀린 것)' : ''));
+}
+const qTarget = () => QZ.list[QZ.i].w[0];
+function qShow(){
+  const it = QZ.list[QZ.i], w = it.w;
+  Object.assign(QZ, { typed:'', tries:0, hint:false, lock:false });
+  qProg.textContent = `${QZ.i+1} / ${QZ.list.length}`;
+  qBar.style.width = (QZ.i / QZ.list.length * 100) + '%';
+  qScore.textContent = `⭕ ${QZ.res.filter(r=>r[1]).length}`;
+  qWhere.textContent = `${STAGES[it.si].name} ${STAGES[it.si].levels[it.l]} · ${mdOf(it.d)}`;
+  qPic.innerHTML = w[2] ? `<div class="text-7xl wob leading-none pop">${w[2]}</div>` : `<div class="text-5xl leading-none pop">🤔</div>`;
+  qKor.textContent = w[1];
+  qMsg.textContent = ''; qMsg.className = 'min-h-[1.5rem] text-sm font-black text-center';
+  qRenderKb(); qSlotsRender();
+}
+function qSlotsRender(state){
+  const t = qTarget(), L = letters(t).length;
+  const sz = L>=12 ? 'w-[22px] h-9 text-base border-2' : L>=10 ? 'w-7 h-10 text-lg border-2' : L>=8 ? 'w-8 h-11 text-xl border-[3px]' : L>=6 ? 'w-10 h-12 text-2xl border-[3px]' : 'w-12 h-14 text-3xl border-4';
+  let j = 0;
+  qSlots.innerHTML = t.split('').map(c => {
+    if (!/[a-z]/i.test(c)) return c===' ' ? '<div class="w-3"></div>' : `<div class="eng text-2xl font-bold text-slate-400">${c}</div>`;
+    const ch = QZ.typed[j] || '', right = c.toLowerCase();
+    let cls = 'bg-white border-slate-200 text-slate-700', show = ch;
+    if (!state && j===QZ.typed.length) cls = 'bg-rose-50 border-rose-400 cur';
+    if (!state && ch) cls = 'bg-sky-50 border-sky-300 text-slate-800';
+    if (state==='ok') cls = 'bg-emerald-100 border-emerald-400 text-emerald-700';
+    if (state==='bad') cls = 'bg-rose-100 border-rose-400 text-rose-600';
+    if (state==='show') { show = right; cls = ch===right ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-amber-100 border-amber-400 text-amber-700'; }
+    j++;
+    return `<div class="${sz} rounded-xl flex items-center justify-center eng font-bold ${cls}">${show}</div>`;
+  }).join('');
+}
+function qRenderKb(){
+  const k = c => `<button onclick="qType('${c}')" class="flex-1 h-12 rounded-xl bg-white border-b-4 border-slate-200 eng text-xl font-bold text-slate-700 bounce active:bg-sky-100">${c}</button>`;
+  const okTxt = QZ && QZ.lock==='next' ? (QZ.i+1 >= QZ.list.length ? '결과 보기 ▶' : '다음 ▶') : '✔ 확인';
+  qKb.innerHTML = ['qwertyuiop','asdfghjkl','zxcvbnm'].map((r,i) =>
+    `<div class="flex gap-1 ${i===1?'px-[4%]':''}">${i===2?'<div class="w-[7%]"></div>':''}${r.split('').map(k).join('')}${i===2?`<button onclick="qBack()" class="w-[15%] h-12 rounded-xl bg-slate-200 border-b-4 border-slate-300 font-black text-slate-600 bounce">⌫</button>`:''}</div>`).join('') +
+    `<button onclick="qCheck()" class="w-full h-12 rounded-xl bg-rose-500 border-b-4 border-rose-700 text-white font-black text-lg bounce">${okTxt}</button>`;
+}
+function qShake(){ qCard.classList.remove('shake'); void qCard.offsetWidth; qCard.classList.add('shake'); }
+window.qType = c => { if (!QZ || QZ.lock) return; if (QZ.typed.length >= letters(qTarget()).length) return; QZ.typed += c; qSlotsRender(); };
+window.qBack = () => { if (!QZ || QZ.lock) return; QZ.typed = QZ.typed.slice(0,-1); qSlotsRender(); };
+window.qCheck = () => {
+  if (!QZ) return;
+  if (QZ.lock==='next') return qNext();
+  if (QZ.lock) return;
+  const ans = letters(qTarget());
+  if (QZ.typed.length < ans.length) { qMsg.textContent = '칸을 다 채워 주세요 ✏️'; qMsg.className='min-h-[1.5rem] text-sm font-black text-center text-slate-400'; qShake(); return; }
+  if (QZ.typed === ans) {
+    const ok = !QZ.hint; qRecord(ok); QZ.lock = true; qSlotsRender('ok');
+    qMsg.textContent = ok ? ['🎉 정답!','👏 잘했어요!','🌟 최고예요!'][Math.random()*3|0] : '⭕ 맞았어요! (힌트를 써서 다시 풀기에 넣어둘게요)';
+    qMsg.className = 'min-h-[1.5rem] text-sm font-black text-center text-emerald-600';
+    say(qTarget()); setTimeout(qNext, ok ? 1000 : 1700);
+  } else if (++QZ.tries < 2) {
+    QZ.lock = true; qSlotsRender('bad'); qShake();
+    qMsg.textContent = '😮 아까워요! 한 번 더 해 볼까요?'; qMsg.className = 'min-h-[1.5rem] text-sm font-black text-center text-rose-500';
+    setTimeout(() => { if (!QZ) return; QZ.typed = ''; QZ.lock = false; qSlotsRender(); }, 800);
+  } else {
+    qRecord(false); QZ.lock = 'next'; qSlotsRender('show'); say(qTarget());
+    qMsg.innerHTML = `정답은 <span class="eng text-lg text-amber-600">${qTarget()}</span> 이에요`; qMsg.className = 'min-h-[1.5rem] text-sm font-black text-center text-slate-600';
+    qRenderKb();
+  }
+};
+function qHintFn(){
+  if (!QZ || QZ.lock) return;
+  const ans = letters(qTarget()); let k = 0;
+  while (k < QZ.typed.length && QZ.typed[k]===ans[k]) k++;
+  if (k >= ans.length) return;
+  QZ.typed = ans.slice(0, k+1); QZ.hint = true; qSlotsRender();
+}
+function qNext(){ if (!QZ) return; QZ.i++; if (QZ.i >= QZ.list.length) return qFinish(); qShow(); }
+function qRecord(ok){
+  const it = QZ.list[QZ.i], k = it.w[0].toLowerCase();
+  QZ.res.push([it, ok]);
+  const r = qres[k] || [0,0,null]; if (ok) r[0]++; else r[1]++; r[2] = ok ? 1 : 0; qres[k] = r; store.set(qKey(), qres);
+  if (auth) { const pq = store.get('qpending', []); pq.push([k, ok?1:0]); store.set('qpending', pq); qFlush(); }
+}
+function qFinish(){
+  const t = QZ.res.length, c = QZ.res.filter(r=>r[1]).length;
+  if (!t) { QZ = null; qPanel('qSetup'); qRenderSetup(); return; }
+  const log = { title: QZ.title, total: t, correct: c };
+  const logs = store.get(qLogKey(), []); logs.unshift(Object.assign({ at: new Date().toISOString() }, log)); store.set(qLogKey(), logs.slice(0,30));
+  if (auth) { const pl = store.get('qplog', []); pl.push(log); store.set('qplog', pl); qFlush(); }
+  const pct = Math.round(c/t*100), wrong = QZ.res.filter(r=>!r[1]).map(r=>r[0]);
+  const face = pct===100 ? '🏆' : pct>=80 ? '🥳' : pct>=50 ? '😊' : '💪';
+  const msg = pct===100 ? '다 맞았어요! 천재!' : pct>=80 ? '정말 잘했어요!' : pct>=50 ? '좋아요, 조금만 더!' : '틀린 건 다시 풀면 돼요!';
+  QZ.wrong = wrong;
+  qEnd.innerHTML = `
+    <div class="bg-white rounded-[2rem] shadow-xl p-6 border-4 border-rose-200 flex flex-col items-center gap-2 pop">
+      <div class="text-7xl wob">${face}</div>
+      <div class="text-xs font-black text-slate-400">${QZ.title}</div>
+      <div class="text-4xl font-black text-rose-500 eng">${c} / ${t}</div>
+      <div class="text-sm font-black text-slate-600">${msg}</div>
+      <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mt-1"><div class="h-full bg-gradient-to-r from-emerald-400 to-teal-500" style="width:${pct}%"></div></div>
+      ${!auth ? '<div class="text-[11px] font-bold text-amber-600 mt-1">로그인하면 기록이 내 아이디에 저장돼요</div>' : ''}
+    </div>
+    <div class="flex flex-col gap-2">
+      ${wrong.length ? `<button onclick="qRetryWrong()" class="w-full py-3.5 rounded-2xl bg-amber-400 text-white font-black text-lg shadow bounce">❌ 방금 틀린 ${wrong.length}개 다시 풀기</button>` : ''}
+      <button onclick="qPanel('qSetup'); QZ=null; qRenderSetup();" class="w-full py-3 rounded-2xl bg-rose-500 text-white font-black bounce">🔁 다른 시험 보기</button>
+    </div>
+    <div class="bg-white rounded-[2rem] shadow p-4 flex flex-col gap-1.5">
+      ${QZ.res.map(([it,ok]) => `<div class="flex items-center gap-2 p-2 rounded-2xl ${ok?'bg-emerald-50':'bg-rose-50'}">
+        <span>${ok?'⭕':'❌'}</span>${it.w[2]?`<span class="text-xl">${it.w[2]}</span>`:''}
+        <span class="eng font-bold text-slate-700">${it.w[0]}</span><span class="flex-1 text-[11px] font-bold text-slate-500 truncate">${it.w[1]}</span>
+        <button onclick="say('${esc(it.w[0])}')" class="w-8 h-8 rounded-xl bg-white text-sky-500 bounce">🔊</button></div>`).join('')}
+    </div>`;
+  qPanel('qEnd');
+}
+window.qRetryWrong = () => { if (QZ && QZ.wrong) qBegin(shuffle(QZ.wrong.slice()), QZ.title.replace(/ \(틀린 것\)$/,'') + ' (틀린 것)'); };
+window.qPanel = qPanel; window.qRenderSetup = qRenderSetup;
+
+let qFlushing = false;
+async function qFlush(){
+  if (!auth || qFlushing) return;
+  const pq = store.get('qpending', []), pl = store.get('qplog', []);
+  if (!pq.length && !pl.length) return;
+  qFlushing = true;
+  try {
+    await api('/api/quiz', { results: pq, logs: pl });
+    store.set('qpending', store.get('qpending', []).slice(pq.length));
+    store.set('qplog', store.get('qplog', []).slice(pl.length));
+  } catch(e){ if (e.status===401) logout(true); else setTimeout(qFlush, 15000); }
+  qFlushing = false;
+  if (auth && (store.get('qpending', []).length || store.get('qplog', []).length)) setTimeout(qFlush, 500);
+}
+async function qPull(){
+  if (!auth) return;
+  try {
+    await qFlush();
+    const j = await api('/api/quiz');
+    qres = j.words || {};
+    store.get('qpending', []).forEach(([k,ok]) => { const r = qres[k] || [0,0,null]; if (ok) r[0]++; else r[1]++; r[2] = ok; qres[k] = r; });
+    store.set(qKey(), qres);
+    store.set(qLogKey(), (j.logs||[]).map(l => ({ title:l.title, total:l.total, correct:l.correct, at:l.created_at })));
+    if (!quiz.classList.contains('hidden') && !QZ) qRenderSetup();
+  } catch(e){ if (e.status===401) logout(true); }
+}
+
+btnQuiz.onclick = qOpen;
+qClose.onclick = qCloseAll;
+qStart.onclick = () => qStartFrom(false);
+qWrongBtn.onclick = () => qStartFrom(true);
+qSay.onclick = () => QZ && say(qTarget());
+qHint.onclick = qHintFn;
+qQuit.onclick = () => { if (QZ && confirm('여기까지만 할까요? 푼 문제까지 저장돼요')) qFinish(); };
+document.addEventListener('keydown', e => {
+  if (quiz.classList.contains('hidden') || qPlay.classList.contains('hidden') || !QZ) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const c = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : (/^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : null);
+  if (c) { e.preventDefault(); qType(c); }
+  else if (e.key==='Backspace') { e.preventDefault(); qBack(); }
+  else if (e.key==='Enter') { e.preventDefault(); qCheck(); }
+});
+
+renderUser();
 go();
+if (auth) { pull(); qPull(); } else if (!store.get('askedLogin', false)) { store.set('askedLogin', true); openLogin(); }
 </script>
 </body>
 </html>
