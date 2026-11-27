@@ -7,7 +7,8 @@
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Noto+Sans+KR:wght@500;700;900&display=swap');
-  body { font-family: 'Noto Sans KR', sans-serif; background: linear-gradient(180deg,#e0f2fe 0%,#fef9c3 100%); min-height:100vh; user-select:none; -webkit-tap-highlight-color:transparent; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: linear-gradient(180deg,#e0f2fe 0%,#fef9c3 100%); min-height:100vh; user-select:none; -webkit-user-select:none; -webkit-tap-highlight-color:transparent; }
+  input, textarea { user-select:text; -webkit-user-select:text; -webkit-touch-callout:default; font-size:16px; }
   .eng { font-family: 'Fredoka', sans-serif; }
   .bounce { transition: transform .14s cubic-bezier(.34,1.56,.64,1); }
   .bounce:active { transform: scale(.92); }
@@ -47,9 +48,9 @@
     <div class="text-center text-4xl mb-1 wob">🐣</div>
     <h2 id="lmTitle" class="text-center font-black text-lg text-sky-600 mb-3">로그인</h2>
     <label class="block text-xs font-black text-slate-500 mb-1">별명</label>
-    <input id="lmNick" maxlength="12" autocomplete="username" class="w-full mb-3 px-3 py-2.5 rounded-2xl border-2 border-sky-100 focus:border-sky-400 outline-none font-bold" placeholder="한글·영어·숫자 2~12자">
+    <input id="lmNick" type="text" lang="ko" inputmode="text" maxlength="12" autocomplete="nickname" autocapitalize="off" autocorrect="off" spellcheck="false" class="w-full mb-3 px-3 py-2.5 rounded-2xl border-2 border-sky-100 focus:border-sky-400 outline-none font-bold" placeholder="한글·영어·숫자 2~12자">
     <label class="block text-xs font-black text-slate-500 mb-1">비밀번호</label>
-    <input id="lmPw" type="password" maxlength="32" autocomplete="current-password" class="w-full mb-2 px-3 py-2.5 rounded-2xl border-2 border-sky-100 focus:border-sky-400 outline-none font-bold" placeholder="4자 이상">
+    <input id="lmPw" type="password" maxlength="32" autocomplete="current-password" class="w-full mb-2 px-3 py-2.5 rounded-2xl border-2 border-sky-100 focus:border-sky-400 outline-none font-bold" placeholder="영어·숫자 4자 이상">
     <p id="lmMsg" class="min-h-[18px] text-xs font-bold text-rose-500 mb-2"></p>
     <button id="lmGo" class="w-full py-2.5 rounded-2xl bg-sky-500 text-white font-black bounce">로그인</button>
     <button id="lmSwitch" class="w-full mt-2 py-2 rounded-2xl bg-amber-50 text-amber-700 text-sm font-black">처음이에요! 가입하기</button>
