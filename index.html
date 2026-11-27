@@ -296,12 +296,44 @@ function renderMonths(){
   }
   dayGrid.innerHTML = h;
 }
+// ---------- 품사 (중등부터) ----------
+const POS = {
+  '명':['명사','bg-sky-100 text-sky-700','사람·물건·생각의 이름'],
+  '동':['동사','bg-rose-100 text-rose-600','움직임·행동'],
+  '형':['형용사','bg-amber-100 text-amber-700','모양·상태·느낌'],
+  '부':['부사','bg-emerald-100 text-emerald-700','동사·형용사를 꾸밈'],
+  '전':['전치사','bg-purple-100 text-purple-700','명사 앞에서 위치·시간·방향'],
+  '접':['접속사','bg-indigo-100 text-indigo-700','말과 말을 이어 줌'],
+  '대':['대명사','bg-cyan-100 text-cyan-700','명사 대신 쓰는 말'],
+  '한':['한정사','bg-lime-100 text-lime-700','명사 앞에서 범위를 정함'],
+  '감':['감탄사','bg-pink-100 text-pink-600','느낌을 나타내는 소리'],
+  '수':['수사','bg-orange-100 text-orange-700','수를 나타냄'],
+  '관':['관사','bg-slate-200 text-slate-600','a, an, the'],
+  '조':['조동사','bg-teal-100 text-teal-700','동사를 도움'],
+  '기타':['기타','bg-slate-100 text-slate-500','']
+};
+const posTag = (p, big) => { const P = POS[p] || POS['기타']; return `<span class="inline-block shrink-0 ${big?'px-2 py-0.5 text-[11px]':'px-1.5 text-[9px]'} rounded-full font-black ${P[1]}">${big?P[0]:p}</span>`; };
+function meaningHTML(w){
+  if (!w[3]) return `<div class="text-lg font-black text-center leading-snug">${w[1]}</div>`;
+  return `<div class="flex flex-col gap-1.5 w-full items-center">${w[3].map(([p,m]) =>
+    `<div class="flex items-center gap-2 max-w-full">${posTag(p,true)}<span class="text-base font-black text-slate-800 leading-snug">${m}</span></div>`).join('')}</div>`;
+}
+const shortMeaning = w => w[3] ? `<span class="inline-flex gap-0.5 mr-1 align-middle">${w[3].map(([p])=>posTag(p,false)).join('')}</span>${w[1]}` : w[1];
+function posLegend(ws){
+  const used = [...new Set(ws.filter(w=>w[3]).flatMap(w=>w[3].map(x=>x[0])))];
+  if (!used.length) return '';
+  return `<div class="rounded-2xl bg-slate-50 border border-slate-100 px-3 py-2 text-[11px] font-bold text-slate-500 flex flex-col gap-1">
+    <div class="font-black text-slate-600">📘 품사 알아보기</div>
+    ${used.map(p => `<div class="flex items-center gap-1.5">${posTag(p,true)}<span>${(POS[p]||POS['기타'])[2]}</span></div>`).join('')}
+    ${ws.some(w=>w[3] && w[3].length>1) ? '<div class="text-[10px] text-slate-400 mt-0.5">💡 같은 단어도 품사에 따라 뜻이 달라져요</div>' : ''}
+  </div>`;
+}
 function card(w,i){
   const done = memo.has(key(w)), W = esc(w[0]);
   return `<div data-card class="pop rounded-3xl ${done?'bg-slate-50 border-slate-200 opacity-70':'bg-gradient-to-b from-amber-50 to-white border-amber-100'} border-2 p-4 flex flex-col items-center gap-3" style="animation-delay:${i*80}ms">
     ${picture(w,true)}
     <div class="eng text-3xl font-bold text-slate-700 tracking-wide">${w[0]}</div>
-    <div class="text-lg font-black text-center leading-snug">${w[1]}</div>
+    ${meaningHTML(w)}
     <div class="flex flex-wrap justify-center gap-1">${tiles(w[0])}</div>
     <div class="grid grid-cols-2 gap-2 w-full">
       <button onclick="say('${W}')" class="py-3 rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 text-white font-black bounce shadow shadow-sky-200">🔊 단어 읽기</button>
@@ -321,7 +353,7 @@ function renderCards(){
   let h = todo.map(card).join('');
   if (!todo.length) h = `<div class="pop text-center py-8 rounded-3xl bg-emerald-50 border-2 border-emerald-200"><div class="text-5xl mb-2">🎉</div><div class="font-black text-emerald-600">이 날 단어를 모두 외웠어요!</div></div>`;
   if (showDone) h += doneW.map((w,i)=>card(w,i+todo.length)).join('');
-  cards.innerHTML = h;
+  cards.innerHTML = h + posLegend(ws);
   btnShowDone.classList.toggle('hidden', !doneW.length);
   btnShowDone.textContent = showDone ? '외운 단어 숨기기' : `외운 단어도 보기 (${doneW.length})`;
 }
@@ -335,7 +367,7 @@ function renderReview(){
   reviewList.innerHTML = list.slice(0, reviewShown).map(([w,i])=>{ const W=esc(w[0]); return `
     <div data-card class="flex items-center gap-2 p-2 rounded-2xl bg-slate-50 border border-slate-100">
       ${picture(w,false)}
-      <div class="flex-1 min-w-0"><div class="eng font-bold text-slate-700 leading-tight">${w[0]}</div><div class="text-[11px] font-bold text-slate-500 truncate">${w[1]}</div></div>
+      <div class="flex-1 min-w-0"><div class="eng font-bold text-slate-700 leading-tight">${w[0]}</div><div class="text-[11px] font-bold text-slate-500 truncate">${shortMeaning(w)}</div></div>
       <span class="text-[9px] font-bold text-slate-300">${md(i)}</span>
       <button onclick="say('${W}')" class="w-9 h-9 rounded-xl bg-sky-100 text-sky-600 bounce">🔊</button>
       <button onclick="toggleMemo('${W}',this)" class="px-2.5 h-9 rounded-xl bg-emerald-500 text-white text-[11px] font-black bounce">✅ 외움</button>
@@ -536,7 +568,7 @@ function qShow(){
   qScore.textContent = `⭕ ${QZ.res.filter(r=>r[1]).length}`;
   qWhere.textContent = `${STAGES[it.si].name} ${STAGES[it.si].levels[it.l]} · ${mdOf(it.d)}`;
   qPic.innerHTML = w[2] ? `<div class="text-7xl wob leading-none pop">${w[2]}</div>` : `<div class="text-5xl leading-none pop">🤔</div>`;
-  qKor.textContent = w[1];
+  qKor.innerHTML = w[3] ? meaningHTML(w) : w[1];
   qMsg.textContent = ''; qMsg.className = 'min-h-[1.5rem] text-sm font-black text-center';
   qRenderKb(); qSlotsRender();
 }
@@ -629,7 +661,7 @@ function qFinish(){
     <div class="bg-white rounded-[2rem] shadow p-4 flex flex-col gap-1.5">
       ${QZ.res.map(([it,ok]) => `<div class="flex items-center gap-2 p-2 rounded-2xl ${ok?'bg-emerald-50':'bg-rose-50'}">
         <span>${ok?'⭕':'❌'}</span>${it.w[2]?`<span class="text-xl">${it.w[2]}</span>`:''}
-        <span class="eng font-bold text-slate-700">${it.w[0]}</span><span class="flex-1 text-[11px] font-bold text-slate-500 truncate">${it.w[1]}</span>
+        <span class="eng font-bold text-slate-700">${it.w[0]}</span><span class="flex-1 text-[11px] font-bold text-slate-500 truncate">${shortMeaning(it.w)}</span>
         <button onclick="say('${esc(it.w[0])}')" class="w-8 h-8 rounded-xl bg-white text-sky-500 bounce">🔊</button></div>`).join('')}
     </div>`;
   qPanel('qEnd');
