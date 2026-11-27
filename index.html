@@ -138,7 +138,7 @@
   <div id="dInfo" class="w-full max-w-lg text-center text-xs font-black text-slate-500"></div>
   <div id="dList" class="w-full max-w-lg flex flex-col gap-1.5"></div>
   <button id="dMore" class="hidden w-full max-w-lg py-2.5 rounded-2xl bg-white text-indigo-500 text-xs font-black bounce">더 보기 ▼</button>
-  <p class="w-full max-w-lg text-center text-[10px] font-bold text-slate-400 mb-6">일부 한글 뜻 출처: Wiktionary (CC BY-SA 4.0)</p>
+  <p class="w-full max-w-lg text-center text-[10px] font-bold text-slate-400 mb-6">한글 뜻 출처: 국립국어원 한국어기초사전 (CC BY-SA 2.0 KR) · 교육과정 등급: 교육부 2022 개정 영어과 교육과정 기본 어휘</p>
  </div>
 </div>
 
@@ -773,11 +773,10 @@ function dictCardHTML(r){
   const w = dictToWord(r), W = esc(w[0]), k = w[0].toLowerCase(), done = memo.has(k);
   const mean = (w[1] || w[3]) ? meaningHTML(w) : `<div class="text-sm font-black text-slate-400">한글 뜻 준비 중이에요</div>`;
   return `<div class="pop rounded-[2rem] bg-white shadow-xl border-4 border-indigo-200 p-5 flex flex-col items-center gap-3">
-    ${r[3] ? `<span class="self-start text-[10px] font-black text-white bg-amber-400 px-2 py-0.5 rounded-full">${r[3]}</span>` : ''}
+    ${(r[3]||r[5]) ? `<div class="self-start flex gap-1">${r[5] ? `<span class="text-[10px] font-black text-white ${r[5]==='초등 필수'?'bg-pink-400':r[5]==='중고 필수'?'bg-sky-500':'bg-slate-400'} px-2 py-0.5 rounded-full">📘 ${r[5]}</span>` : ''}${r[3] ? `<span class="text-[10px] font-black text-white bg-amber-400 px-2 py-0.5 rounded-full">${r[3]}</span>` : ''}</div>` : ''}
     ${picture(w,true)}
     <div class="eng text-3xl font-bold text-slate-700 tracking-wide text-center">${w[0]}</div>
     ${mean}
-    ${r[5] ? `<div class="w-full text-[11px] font-bold text-slate-400 bg-slate-50 rounded-xl px-3 py-2 eng">${r[5]}</div>` : ''}
     <div class="flex flex-wrap justify-center gap-1">${tiles(w[0])}</div>
     <div class="grid grid-cols-2 gap-2 w-full">
       <button onclick="say('${W}')" class="py-3 rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 text-white font-black bounce shadow">🔊 단어 읽기</button>
@@ -795,10 +794,10 @@ window.dMemo = w => {
   dShow(D.cur);
 };
 function dRow(r){
-  const w = dictToWord(r), k = w[0].toLowerCase(), m = w[3] ? shortMeaning(w) : (w[1] || `<span class="text-slate-300">${(r[5]||'').slice(0,50)}</span>`);
+  const w = dictToWord(r), k = w[0].toLowerCase(), m = w[3] ? shortMeaning(w) : w[1];
   return `<button onclick="dPick('${esc(k)}')" class="w-full text-left flex items-center gap-2 p-2 rounded-2xl bg-white/90 border border-white bounce">
     ${picture(w,false)}
-    <div class="flex-1 min-w-0"><div class="eng font-bold text-slate-700 leading-tight">${w[0]} ${memo.has(k)?'<span class="text-[10px]">✅</span>':''}</div>
+    <div class="flex-1 min-w-0"><div class="eng font-bold text-slate-700 leading-tight">${w[0]} ${r[5]==='초등 필수'?'<span class="text-[9px] font-black text-pink-500">초등</span>':r[5]==='중고 필수'?'<span class="text-[9px] font-black text-sky-500">중고</span>':''} ${memo.has(k)?'<span class="text-[10px]">✅</span>':''}</div>
     <div class="text-[11px] font-bold text-slate-500 truncate">${m}</div></div></button>`;
 }
 function dRenderList(){
@@ -816,8 +815,8 @@ window.dLetter = async L => {
   if (D.letter !== L) return;
   if (!arr) { dInfo.textContent = `${L} 단어는 아직 준비 중이에요`; return; }
   D.list = arr; D.shown = 60;
-  const ko = arr.filter(r => r[1]).length;
-  dInfo.textContent = `${L} 단어 ${arr.length.toLocaleString()}개 (한글 뜻 ${ko.toLocaleString()}개)`;
+  const ed = arr.filter(r => r[5]==='초등 필수' || r[5]==='중고 필수').length;
+  dInfo.textContent = `${L} 단어 ${arr.length.toLocaleString()}개 · 교육과정 필수 ${ed.toLocaleString()}개`;
   dRenderList();
 };
 async function dDoSearch(){
