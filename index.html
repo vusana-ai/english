@@ -101,6 +101,20 @@
   <p class="text-[10px] font-bold text-slate-400 text-center">✅ 그날 단어를 다 외운 날 · ⭐ 오늘</p>
 </section>
 
+<!-- 예쁜 확인창 -->
+<div id="dlg" class="hidden fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4">
+  <div id="dlgBox" class="w-full max-w-xs bg-white rounded-[2rem] shadow-2xl p-6 border-4 border-sky-100 flex flex-col items-center gap-2 pop">
+    <div id="dlgEmoji" class="text-6xl wob">👋</div>
+    <div id="dlgTitle" class="text-lg font-black text-slate-800 text-center"></div>
+    <div id="dlgMsg" class="text-xs font-bold text-slate-500 text-center leading-relaxed whitespace-pre-line"></div>
+    <div class="flex gap-2 w-full mt-3">
+      <button id="dlgNo" class="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-500 font-black bounce">취소</button>
+      <button id="dlgYes" class="flex-1 py-3 rounded-2xl bg-rose-500 text-white font-black shadow bounce">확인</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-8 z-[70] px-5 py-3 rounded-2xl bg-slate-800/90 text-white text-sm font-black shadow-xl"></div>
+
 <!-- ===== 시험치기 ===== -->
 <div id="quiz" class="hidden fixed inset-0 z-40 overflow-y-auto" style="background:linear-gradient(180deg,#fce7f3 0%,#e0f2fe 100%)">
  <div class="min-h-full flex flex-col items-center p-3 gap-3">
@@ -175,8 +189,10 @@ const store = { get(k,d){ try{ const v=localStorage.getItem(k); return v==null?d
 // ---------- 서버 (로그인) ----------
 const API = 'https://engkor.duckdns.org';
 let auth = store.get('auth', null);            // {token, nick}
-const memoKey = () => auth ? 'memo_' + auth.nick.toLowerCase() : 'memorized';
-let memo = new Set(store.get(memoKey(), []));
+const memoKey = () => 'memo_' + (auth ? auth.nick.toLowerCase() : '');
+const loadMemo = () => new Set(auth ? store.get(memoKey(), []) : []);   // 로그인 안 하면 저장 안 함
+let memo = loadMemo();
+['memorized','quiz_guest','qlogs_guest'].forEach(k => { try { localStorage.removeItem(k); } catch(e){} });
 let st = store.get('stage', 0), lv = store.get('level', 0);
 let mon = now.getMonth()+1, day = now.getDate();
 let showDone = false, reviewShown = 12;
@@ -197,14 +213,36 @@ function ensureData(cb){
 }
 
 // ---------- 음성 (지금은 브라우저 기본 음성) ----------
-let voices = [];
-if ('speechSynthesis' in window) { const lv_ = ()=>voices = speechSynthesis.getVoices()||[]; lv_(); speechSynthesis.onvoiceschanged = lv_; }
+let voices = [], speechWarned = false;
+const SS = ('speechSynthesis' in window) ? window.speechSynthesis : null;
+const INAPP = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|; wv\)/i.test(navigator.userAgent);
+function loadVoices(){ if (SS) voices = SS.getVoices() || []; }
+if (SS) { loadVoices(); SS.onvoiceschanged = loadVoices; if (SS.addEventListener) SS.addEventListener('voiceschanged', loadVoices); }
+function pickVoice(){
+  if (!voices.length) loadVoices();
+  const en = voices.filter(v => /^en[-_]?/i.test(v.lang));
+  const us = en.filter(v => /en[-_]US/i.test(v.lang));
+  // 기기에 깔린(오프라인) 미국 영어 목소리 우선
+  return us.find(v => v.localService) || us[0] || en.find(v => v.localService) || en[0] || null;
+}
+function speechHelp(){
+  if (speechWarned) return; speechWarned = true;
+  toast(INAPP ? '🔇 카톡·앱 안에서는 소리가 안 나와요. 크롬이나 사파리로 열어 주세요' : '🔇 소리가 안 나오면 무음 모드와 볼륨을 확인해 주세요');
+}
 function speak(text, rate=0.85){
-  if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=rate;
-  const v = voices.find(v=>/en(-|_)US/i.test(v.lang)) || voices.find(v=>/^en/i.test(v.lang)); if (v) u.voice = v;
-  window._u = u; speechSynthesis.speak(u);
+  if (!SS) { speechHelp(); return; }
+  const go = () => {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = rate; u.pitch = 1; u.volume = 1;
+    const v = pickVoice(); if (v) u.voice = v;
+    u.onerror = e => { if (e.error !== 'interrupted' && e.error !== 'canceled') speechHelp(); };
+    window._u = u;                     // 일부 폰에서 말하는 도중 사라지는 것 방지
+    SS.speak(u);
+    if (SS.paused) SS.resume();        // 안드로이드 크롬이 멈춘 채로 있는 경우
+  };
+  // 폰에서는 cancel() 직후 바로 speak()하면 무시되는 경우가 있어서 잠깐 쉬었다가 말하기
+  if (SS.speaking || SS.pending) { SS.cancel(); setTimeout(go, 150); } else go();
+  if (INAPP) speechHelp();
 }
 const PH = {a:'ah',b:'buh',c:'kuh',d:'duh',e:'eh',f:'fff',g:'guh',h:'huh',i:'ih',j:'juh',k:'kuh',l:'lll',m:'mmm',n:'nnn',o:'aw',p:'puh',q:'kwuh',r:'ruh',s:'sss',t:'tuh',u:'uh',v:'vvv',w:'wuh',x:'ks',y:'yuh',z:'zzz'};
 window.phon = c => speak(PH[c]||c, .95);
@@ -212,6 +250,7 @@ window.say = w => speak(w);
 
 // ---------- 외움 ----------
 window.toggleMemo = (w, el) => {
+  if (!auth) return openLogin('로그인하면 외운 단어를 저장할 수 있어요 😊', true);
   const k = w.toLowerCase();
   const done = () => { const on = !memo.has(k); if (on) memo.add(k); else memo.delete(k); store.set(memoKey(), [...memo]); queueSync(k, on); renderAll(); };
   const card = el && el.closest('[data-card]');
@@ -349,19 +388,40 @@ async function pull(){
     store.set(memoKey(), [...memo]); renderAll();
   } catch(e){ if (e.status===401) logout(true); }
 }
+function askBox(o){
+  return new Promise(res => {
+    dlgEmoji.textContent = o.emoji || '🤔'; dlgTitle.textContent = o.title || ''; dlgMsg.textContent = o.msg || '';
+    dlgYes.textContent = o.ok || '확인'; dlgNo.textContent = o.cancel || '취소';
+    dlgYes.className = 'flex-1 py-3 rounded-2xl text-white font-black shadow bounce ' + (o.color || 'bg-rose-500');
+    dlg.classList.remove('hidden'); dlgBox.classList.remove('pop'); void dlgBox.offsetWidth; dlgBox.classList.add('pop');
+    const done = v => { dlg.classList.add('hidden'); dlgYes.onclick = dlgNo.onclick = dlg.onclick = null; res(v); };
+    dlgYes.onclick = () => done(true); dlgNo.onclick = () => done(false);
+    dlg.onclick = e => { if (e.target === dlg) done(false); };
+  });
+}
+let toastT;
+function toast(t){ toast_.textContent = t; toast_.classList.remove('hidden'); clearTimeout(toastT); toastT = setTimeout(() => toast_.classList.add('hidden'), 1800); }
+const toast_ = document.getElementById('toast');
 function renderUser(){ btnUser.textContent = auth ? '👤 ' + auth.nick : '🔑 로그인'; }
 function logout(expired){
   if (auth) api('/api/logout', {}).catch(()=>{});
   auth = null; store.set('auth', null); store.set('pending', {});
   store.set('qpending', []); store.set('qplog', []); qReload();
-  memo = new Set(store.get(memoKey(), [])); renderUser(); renderAll();
+  memo = loadMemo(); renderUser(); renderAll();
+  if (!quiz.classList.contains('hidden') && !QZ) qRenderSetup();
   if (expired) openLogin('다시 로그인해 주세요');
 }
 let signup = false;
 function setMode(){ lmTitle.textContent = signup ? '가입하기' : '로그인'; lmGo.textContent = signup ? '가입하고 시작!' : '로그인';
   lmSwitch.textContent = signup ? '이미 있어요! 로그인하기' : '처음이에요! 가입하기'; lmMsg.textContent=''; }
-function openLogin(msg){ signup=false; setMode(); lmMsg.textContent = msg||''; loginModal.classList.remove('hidden'); setTimeout(()=>lmNick.focus(),50); }
-btnUser.onclick = () => { if (!auth) return openLogin(); if (confirm(auth.nick + ' 로그아웃할까요?')) logout(); };
+function openLogin(msg, info){ signup=false; setMode(); lmMsg.textContent = msg||''; lmMsg.className = 'min-h-[18px] text-xs font-bold mb-2 ' + (info ? 'text-sky-500' : 'text-rose-500'); loginModal.classList.remove('hidden'); setTimeout(()=>lmNick.focus(),50); }
+btnUser.onclick = async () => {
+  if (!auth) return openLogin();
+  const nick = auth.nick;
+  if (await askBox({ emoji:'👋', title: nick + '님, 로그아웃할까요?', msg:'외운 단어와 시험 기록은 아이디에 저장돼 있어서\n다시 로그인하면 그대로 볼 수 있어요', ok:'로그아웃', cancel:'더 공부할래요' })) {
+    logout(); toast('👋 ' + nick + '님, 또 만나요!');
+  }
+};
 lmSwitch.onclick = () => { signup = !signup; setMode(); };
 lmClose.onclick = () => loginModal.classList.add('hidden');
 lmPw.onkeydown = e => { if (e.key==='Enter') lmGo.click(); };
@@ -371,13 +431,11 @@ lmGo.onclick = async () => {
   if (pw.length < 4) { lmMsg.textContent='비밀번호는 4자 이상이에요'; return; }
   lmGo.disabled = true; lmMsg.textContent = '';
   try {
-    const guest = [...new Set(store.get('memorized', []))];
     const j = await api(signup ? '/api/signup' : '/api/login', { nick, pw });
     auth = { token: j.token, nick: j.nick }; store.set('auth', auth);
-    // 로그인 전에 이 기기에서 외운 단어도 내 계정으로 합치기
-    if (guest.length) { await api('/api/memo', { add: guest }).catch(()=>{}); store.set('memorized', []); }
-    memo = new Set(store.get(memoKey(), []));
-    loginModal.classList.add('hidden'); lmPw.value=''; renderUser(); renderAll(); pull(); qReload(); qPull();
+    memo = loadMemo();
+    loginModal.classList.add('hidden'); lmPw.value=''; renderUser(); renderAll(); pull(); qReload(); qPull(); toast('🎉 ' + auth.nick + '님, 반가워요!');
+    if (!quiz.classList.contains('hidden') && !QZ) qRenderSetup();
   } catch(e){ lmMsg.textContent = e.message; }
   lmGo.disabled = false;
 };
@@ -385,10 +443,10 @@ window.addEventListener('online', () => { flush(); qFlush(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { pull(); qPull(); } });
 
 // ================= 시험치기 =================
-const qKey = () => auth ? 'quiz_' + auth.nick.toLowerCase() : 'quiz_guest';
-const qLogKey = () => auth ? 'qlogs_' + auth.nick.toLowerCase() : 'qlogs_guest';
-let qres = store.get(qKey(), {});            // 단어 → [맞은 수, 틀린 수, 마지막에 맞았나(1/0)]
-function qReload(){ qres = store.get(qKey(), {}); }
+const qKey = () => 'quiz_' + (auth ? auth.nick.toLowerCase() : '');
+const qLogKey = () => 'qlogs_' + (auth ? auth.nick.toLowerCase() : '');
+let qres = auth ? store.get(qKey(), {}) : {};            // 단어 → [맞은 수, 틀린 수, 마지막에 맞았나(1/0)]
+function qReload(){ qres = auth ? store.get(qKey(), {}) : {}; }
 const qs = { st:0, lv:0, m:1 };              // st -1 = 전체 단계, lv -1 = 전체 학년, m 0 = 1년 전체
 let QZ = null;
 const shuffle = a => { for (let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; };
@@ -441,11 +499,11 @@ function qRenderSetup(){
     qInfo.innerHTML = `${qTitle()} · 단어 <span class="text-rose-500">${pool.length}</span>개 · 틀린 단어 <span class="text-amber-600">${wrong}</span>개`;
     qNum.placeholder = `전부(${pool.length})`;
     qStart.disabled = !pool.length; qStart.classList.toggle('opacity-40', !pool.length);
-    qWrongBtn.disabled = !wrong; qWrongBtn.classList.toggle('opacity-40', !wrong);
+    qWrongBtn.disabled = !wrong; qWrongBtn.classList.toggle('opacity-40', !wrong); qWrongBtn.classList.toggle('hidden', !auth);
     qWrongBtn.textContent = `❌ 틀린 것만 다시 풀기 (${wrong}개)`;
   });
-  const logs = store.get(qLogKey(), []);
-  qLogs.innerHTML = logs.length ? logs.slice(0,8).map(l => {
+  const logs = auth ? store.get(qLogKey(), []) : [];
+  qLogs.innerHTML = !auth ? `<button onclick="openLogin('로그인하면 시험 기록과 틀린 문제가 저장돼요 😊', true)" class="text-[11px] font-black text-sky-500 underline text-left">🔑 로그인하면 시험 기록과 틀린 문제가 저장돼요</button>` : logs.length ? logs.slice(0,8).map(l => {
     const pct = l.total ? Math.round(l.correct/l.total*100) : 0;
     return `<div class="flex items-center gap-2 text-[11px] font-bold text-slate-500 bg-white rounded-xl px-3 py-1.5">
       <span class="text-slate-300 w-[72px]">${qTime(l.at)}</span><span class="flex-1 truncate">${l.title}</span>
@@ -540,14 +598,15 @@ function qNext(){ if (!QZ) return; QZ.i++; if (QZ.i >= QZ.list.length) return qF
 function qRecord(ok){
   const it = QZ.list[QZ.i], k = it.w[0].toLowerCase();
   QZ.res.push([it, ok]);
+  if (!auth) return;   // 로그인 안 하면 기록 안 함
   const r = qres[k] || [0,0,null]; if (ok) r[0]++; else r[1]++; r[2] = ok ? 1 : 0; qres[k] = r; store.set(qKey(), qres);
-  if (auth) { const pq = store.get('qpending', []); pq.push([k, ok?1:0]); store.set('qpending', pq); qFlush(); }
+  { const pq = store.get('qpending', []); pq.push([k, ok?1:0]); store.set('qpending', pq); qFlush(); }
 }
 function qFinish(){
   const t = QZ.res.length, c = QZ.res.filter(r=>r[1]).length;
   if (!t) { QZ = null; qPanel('qSetup'); qRenderSetup(); return; }
   const log = { title: QZ.title, total: t, correct: c };
-  const logs = store.get(qLogKey(), []); logs.unshift(Object.assign({ at: new Date().toISOString() }, log)); store.set(qLogKey(), logs.slice(0,30));
+  if (auth) { const logs = store.get(qLogKey(), []); logs.unshift(Object.assign({ at: new Date().toISOString() }, log)); store.set(qLogKey(), logs.slice(0,30)); }
   if (auth) { const pl = store.get('qplog', []); pl.push(log); store.set('qplog', pl); qFlush(); }
   const pct = Math.round(c/t*100), wrong = QZ.res.filter(r=>!r[1]).map(r=>r[0]);
   const face = pct===100 ? '🏆' : pct>=80 ? '🥳' : pct>=50 ? '😊' : '💪';
@@ -560,7 +619,7 @@ function qFinish(){
       <div class="text-4xl font-black text-rose-500 eng">${c} / ${t}</div>
       <div class="text-sm font-black text-slate-600">${msg}</div>
       <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden mt-1"><div class="h-full bg-gradient-to-r from-emerald-400 to-teal-500" style="width:${pct}%"></div></div>
-      ${!auth ? '<div class="text-[11px] font-bold text-amber-600 mt-1">로그인하면 기록이 내 아이디에 저장돼요</div>' : ''}
+      ${!auth ? '<div class="text-[11px] font-bold text-amber-600 mt-1">로그인하면 점수와 틀린 문제가 내 아이디에 저장돼요</div>' : ''}
     </div>
     <div class="flex flex-col gap-2">
       ${wrong.length ? `<button onclick="qRetryWrong()" class="w-full py-3.5 rounded-2xl bg-amber-400 text-white font-black text-lg shadow bounce">❌ 방금 틀린 ${wrong.length}개 다시 풀기</button>` : ''}
@@ -610,14 +669,17 @@ qStart.onclick = () => qStartFrom(false);
 qWrongBtn.onclick = () => qStartFrom(true);
 qSay.onclick = () => QZ && say(qTarget());
 qHint.onclick = qHintFn;
-qQuit.onclick = () => { if (QZ && confirm('여기까지만 할까요? 푼 문제까지 저장돼요')) qFinish(); };
+qQuit.onclick = async () => {
+  if (!QZ) return;
+  if (await askBox({ emoji:'🙋', title:'여기까지만 할까요?', msg: auth ? '지금까지 푼 문제는 저장돼요' : '지금까지 푼 결과를 보여 줄게요', ok:'그만할래요', cancel:'계속 풀기', color:'bg-sky-500' })) qFinish();
+};
 document.addEventListener('keydown', e => {
-  if (quiz.classList.contains('hidden') || qPlay.classList.contains('hidden') || !QZ) return;
+  if (quiz.classList.contains('hidden') || qPlay.classList.contains('hidden') || !QZ || !dlg.classList.contains('hidden')) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const c = /^Key[A-Z]$/.test(e.code) ? e.code.slice(3).toLowerCase() : (/^[a-z]$/i.test(e.key) ? e.key.toLowerCase() : null);
   if (c) { e.preventDefault(); qType(c); }
   else if (e.key==='Backspace') { e.preventDefault(); qBack(); }
-  else if (e.key==='Enter') { e.preventDefault(); qCheck(); }
+  else if (e.key==='Enter' || e.code==='Space' || e.key===' ') { e.preventDefault(); qCheck(); }
 });
 
 renderUser();
