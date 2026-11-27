@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0ea5e9">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>매일 영단어 - 유치원부터 대학까지</title>
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <style>
@@ -242,7 +247,7 @@ function ensureData(cb){
 // ---------- 음성 (지금은 브라우저 기본 음성) ----------
 let voices = [], speechWarned = false;
 const SS = ('speechSynthesis' in window) ? window.speechSynthesis : null;
-const INAPP = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|; wv\)/i.test(navigator.userAgent);
+const INAPP = !window.AndroidTTS && /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps|everytimeApp|; wv\)/i.test(navigator.userAgent);
 function loadVoices(){ if (SS) voices = SS.getVoices() || []; }
 if (SS) { loadVoices(); SS.onvoiceschanged = loadVoices; if (SS.addEventListener) SS.addEventListener('voiceschanged', loadVoices); }
 function pickVoice(){
@@ -257,6 +262,8 @@ function speechHelp(){
   toast(INAPP ? '🔇 카톡·앱 안에서는 소리가 안 나와요. 크롬이나 사파리로 열어 주세요' : '🔇 소리가 안 나오면 무음 모드와 볼륨을 확인해 주세요');
 }
 function speak(text, rate=0.85){
+  // 안드로이드 앱 안에서는 폰에 들어 있는 TTS 음성으로 읽기
+  if (window.AndroidTTS) { try { AndroidTTS.speak(String(text), rate); return; } catch(e){} }
   if (!SS) { speechHelp(); return; }
   const go = () => {
     const u = new SpeechSynthesisUtterance(text);
@@ -845,6 +852,7 @@ dSearch.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); dSearch.
 let dTimer; dSearch.oninput = () => { clearTimeout(dTimer); dTimer = setTimeout(() => { if (dSearch.value.trim().length >= 2) dDoSearch(); }, 350); };
 dMore.onclick = () => { D.shown += 120; dRenderList(); };
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 renderUser();
 go();
 if (auth) { pull(); qPull(); } else if (!store.get('askedLogin', false)) { store.set('askedLogin', true); openLogin(); }
