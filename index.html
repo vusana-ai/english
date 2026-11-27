@@ -38,9 +38,14 @@
   <div class="flex items-center gap-1.5">
     <button id="btnUser" class="px-2.5 py-1.5 rounded-2xl bg-sky-100 border border-sky-300 text-sky-700 text-xs font-black bounce max-w-[92px] truncate">🔑 로그인</button>
     <button id="btnToday" class="px-2.5 py-1.5 rounded-2xl bg-amber-100 border border-amber-300 text-amber-700 text-xs font-black bounce whitespace-nowrap">⭐ 오늘</button>
-    <button id="btnQuiz" class="px-2.5 py-1.5 rounded-2xl bg-rose-500 border border-rose-600 text-white text-xs font-black bounce shadow whitespace-nowrap">📝 시험치기</button>
   </div>
 </header>
+
+<!-- 상단 메뉴 -->
+<div class="w-full max-w-lg grid grid-cols-2 gap-2">
+  <button id="btnDict" class="py-2.5 rounded-2xl bg-indigo-500 border-b-4 border-indigo-700 text-white text-sm font-black bounce shadow">📖 영한사전</button>
+  <button id="btnQuiz" class="py-2.5 rounded-2xl bg-rose-500 border-b-4 border-rose-700 text-white text-sm font-black bounce shadow">📝 시험치기</button>
+</div>
 
 <!-- 로그인 창 -->
 <div id="loginModal" class="hidden fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
@@ -115,6 +120,27 @@
   </div>
 </div>
 <div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-8 z-[70] px-5 py-3 rounded-2xl bg-slate-800/90 text-white text-sm font-black shadow-xl"></div>
+
+<!-- ===== 영한사전 ===== -->
+<div id="dict" class="hidden fixed inset-0 z-40 overflow-y-auto" style="background:linear-gradient(180deg,#e0e7ff 0%,#fef9c3 100%)">
+ <div class="min-h-full flex flex-col items-center p-3 gap-3">
+  <div class="w-full max-w-lg bg-white rounded-3xl shadow-md p-3 flex items-center justify-between border-2 border-indigo-100">
+    <div class="flex items-center gap-2"><span class="text-2xl wob">📖</span><h1 class="font-black text-base text-indigo-600">영한사전</h1></div>
+    <button id="dClose" class="px-3 py-1.5 rounded-2xl bg-slate-100 text-slate-500 text-xs font-black bounce">✖ 닫기</button>
+  </div>
+  <div class="w-full max-w-lg flex gap-2">
+    <input id="dSearch" type="search" lang="en" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+      class="flex-1 px-4 py-3 rounded-2xl border-2 border-indigo-100 focus:border-indigo-400 outline-none font-bold eng text-lg bg-white" placeholder="영어 단어 검색 (예: apple)">
+    <button id="dGo" class="px-4 rounded-2xl bg-indigo-500 text-white font-black bounce">🔍</button>
+  </div>
+  <div id="dCard" class="w-full max-w-lg"></div>
+  <div id="dLetters" class="w-full max-w-lg grid grid-cols-9 gap-1"></div>
+  <div id="dInfo" class="w-full max-w-lg text-center text-xs font-black text-slate-500"></div>
+  <div id="dList" class="w-full max-w-lg flex flex-col gap-1.5"></div>
+  <button id="dMore" class="hidden w-full max-w-lg py-2.5 rounded-2xl bg-white text-indigo-500 text-xs font-black bounce">더 보기 ▼</button>
+  <p class="w-full max-w-lg text-center text-[10px] font-bold text-slate-400 mb-6">일부 한글 뜻 출처: Wiktionary (CC BY-SA 4.0)</p>
+ </div>
+</div>
 
 <!-- ===== 시험치기 ===== -->
 <div id="quiz" class="hidden fixed inset-0 z-40 overflow-y-auto" style="background:linear-gradient(180deg,#fce7f3 0%,#e0f2fe 100%)">
@@ -634,6 +660,7 @@ function qRecord(ok){
   if (!auth) return;   // 로그인 안 하면 기록 안 함
   const r = qres[k] || [0,0,null]; if (ok) r[0]++; else r[1]++; r[2] = ok ? 1 : 0; qres[k] = r; store.set(qKey(), qres);
   { const pq = store.get('qpending', []); pq.push([k, ok?1:0]); store.set('qpending', pq); qFlush(); }
+  if (ok && !memo.has(k)) { memo.add(k); store.set(memoKey(), [...memo]); queueSync(k, true); }   // 맞힌 단어는 외운 단어로
 }
 function qFinish(){
   const t = QZ.res.length, c = QZ.res.filter(r=>r[1]).length;
@@ -714,6 +741,110 @@ document.addEventListener('keydown', e => {
   else if (e.key==='Backspace') { e.preventDefault(); qBack(); }
   else if (e.key==='Enter' || e.code==='Space' || e.key===' ') { e.preventDefault(); qCheck(); }
 });
+
+// ================= 영한사전 =================
+// word_a.js ~ word_z.js 가 있는 폴더 (앞에서부터 찾아봄)
+const DICT_BASES = ['word/', '../word/', '/word/', '/english/word/'];
+let dictBase = store.get('dictBase', null);
+const dictLoading = {};
+const D = { letter: null, list: [], shown: 0, cur: null };
+function loadLetter(L){
+  L = L.toUpperCase();
+  if ((window.WORD_DICT||{})[L]) return Promise.resolve(window.WORD_DICT[L]);
+  if (dictLoading[L]) return dictLoading[L];
+  const bases = dictBase ? [dictBase, ...DICT_BASES.filter(b=>b!==dictBase)] : DICT_BASES;
+  dictLoading[L] = new Promise(res => {
+    let i = 0;
+    const tryNext = () => {
+      if (i >= bases.length) { dictLoading[L] = null; return res(null); }
+      const b = bases[i++], sc = document.createElement('script');
+      sc.src = `${b}word_${L.toLowerCase()}.js`;
+      sc.onload = () => { if ((window.WORD_DICT||{})[L]) { dictBase = b; store.set('dictBase', b); res(window.WORD_DICT[L]); } else tryNext(); };
+      sc.onerror = () => { sc.remove(); tryNext(); };
+      document.head.appendChild(sc);
+    };
+    tryNext();
+  });
+  return dictLoading[L];
+}
+// 사전 형식 [단어, 뜻, 이모지, 단계, [[품사,뜻]...], 영어설명] → 앱 카드 형식
+const dictToWord = r => [r[0], r[1] || '', r[2] || '', (r[4] && r[4].length) ? r[4] : undefined];
+function dictCardHTML(r){
+  const w = dictToWord(r), W = esc(w[0]), k = w[0].toLowerCase(), done = memo.has(k);
+  const mean = (w[1] || w[3]) ? meaningHTML(w) : `<div class="text-sm font-black text-slate-400">한글 뜻 준비 중이에요</div>`;
+  return `<div class="pop rounded-[2rem] bg-white shadow-xl border-4 border-indigo-200 p-5 flex flex-col items-center gap-3">
+    ${r[3] ? `<span class="self-start text-[10px] font-black text-white bg-amber-400 px-2 py-0.5 rounded-full">${r[3]}</span>` : ''}
+    ${picture(w,true)}
+    <div class="eng text-3xl font-bold text-slate-700 tracking-wide text-center">${w[0]}</div>
+    ${mean}
+    ${r[5] ? `<div class="w-full text-[11px] font-bold text-slate-400 bg-slate-50 rounded-xl px-3 py-2 eng">${r[5]}</div>` : ''}
+    <div class="flex flex-wrap justify-center gap-1">${tiles(w[0])}</div>
+    <div class="grid grid-cols-2 gap-2 w-full">
+      <button onclick="say('${W}')" class="py-3 rounded-2xl bg-gradient-to-r from-sky-400 to-indigo-500 text-white font-black bounce shadow">🔊 단어 읽기</button>
+      <button onclick="dMemo('${W}')" class="py-3 rounded-2xl ${done?'bg-slate-200 text-slate-500':'bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow'} font-black bounce">${done?'↩️ 다시 외우기':'✅ 외웠어요'}</button>
+    </div>
+  </div>`;
+}
+function dShow(r){ D.cur = r; dCard.innerHTML = r ? dictCardHTML(r) : ''; if (r) dict.scrollTo({top:0, behavior:'smooth'}); }
+window.dMemo = w => {
+  if (!auth) return openLogin('로그인하면 외운 단어를 저장할 수 있어요 😊', true);
+  const k = w.toLowerCase(), on = !memo.has(k);
+  if (on) memo.add(k); else memo.delete(k);
+  store.set(memoKey(), [...memo]); queueSync(k, on);
+  if (on) toast('✅ 외운 단어에 넣었어요');
+  dShow(D.cur);
+};
+function dRow(r){
+  const w = dictToWord(r), k = w[0].toLowerCase(), m = w[3] ? shortMeaning(w) : (w[1] || `<span class="text-slate-300">${(r[5]||'').slice(0,50)}</span>`);
+  return `<button onclick="dPick('${esc(k)}')" class="w-full text-left flex items-center gap-2 p-2 rounded-2xl bg-white/90 border border-white bounce">
+    ${picture(w,false)}
+    <div class="flex-1 min-w-0"><div class="eng font-bold text-slate-700 leading-tight">${w[0]} ${memo.has(k)?'<span class="text-[10px]">✅</span>':''}</div>
+    <div class="text-[11px] font-bold text-slate-500 truncate">${m}</div></div></button>`;
+}
+function dRenderList(){
+  dList.innerHTML = D.list.slice(0, D.shown).map(dRow).join('');
+  dMore.classList.toggle('hidden', D.list.length <= D.shown);
+}
+window.dPick = k => { const L = k[0].toUpperCase(), arr = (window.WORD_DICT||{})[L] || []; dShow(arr.find(r => r[0].toLowerCase() === k)); };
+function dRenderLetters(){
+  dLetters.innerHTML = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(L =>
+    `<button onclick="dLetter('${L}')" class="h-10 rounded-xl eng font-bold text-lg bounce ${D.letter===L?'bg-indigo-500 text-white shadow':'bg-white text-indigo-500'}">${L}</button>`).join('');
+}
+window.dLetter = async L => {
+  D.letter = L; dRenderLetters(); dInfo.textContent = `${L} 단어 불러오는 중…`; dList.innerHTML = ''; dMore.classList.add('hidden');
+  const arr = await loadLetter(L);
+  if (D.letter !== L) return;
+  if (!arr) { dInfo.textContent = `${L} 단어는 아직 준비 중이에요`; return; }
+  D.list = arr; D.shown = 60;
+  const ko = arr.filter(r => r[1]).length;
+  dInfo.textContent = `${L} 단어 ${arr.length.toLocaleString()}개 (한글 뜻 ${ko.toLocaleString()}개)`;
+  dRenderList();
+};
+async function dDoSearch(){
+  const q = dSearch.value.trim().toLowerCase();
+  if (!q) return;
+  if (!/^[a-z]/.test(q)) {   // 한글로 찾기: 불러온 글자 안에서 뜻 검색
+    const all = Object.values(window.WORD_DICT||{}).flat();
+    D.list = all.filter(r => (r[1]||'').includes(q)); D.shown = 60; D.letter = null; dRenderLetters();
+    dInfo.textContent = all.length ? `"${q}" 뜻이 들어간 단어 ${D.list.length}개 (열어 본 글자 안에서)` : '한글 검색은 먼저 A~Z 글자를 하나 열어야 해요';
+    dShow(null); dRenderList(); return;
+  }
+  const L = q[0].toUpperCase(); dInfo.textContent = '찾는 중…';
+  const arr = await loadLetter(L);
+  if (!arr) { dInfo.textContent = `${L} 단어는 아직 준비 중이에요`; dShow(null); return; }
+  const exact = arr.find(r => r[0].toLowerCase() === q);
+  D.list = arr.filter(r => r[0].toLowerCase().startsWith(q) && r[0].toLowerCase() !== q); D.shown = 60; D.letter = L; dRenderLetters();
+  dShow(exact || null);
+  dInfo.textContent = exact ? (D.list.length ? `"${q}"(으)로 시작하는 다른 단어 ${D.list.length}개` : '') : `"${q}" 단어가 없어요. 비슷한 단어 ${D.list.length}개`;
+  dRenderList();
+}
+function dOpen(){ dict.classList.remove('hidden'); document.body.style.overflow='hidden'; dRenderLetters(); if (!D.letter && !D.cur) dLetter('A'); setTimeout(()=>dSearch.focus(), 100); }
+btnDict.onclick = dOpen;
+dClose.onclick = () => { dict.classList.add('hidden'); document.body.style.overflow=''; renderAll(); };
+dGo.onclick = dDoSearch;
+dSearch.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); dSearch.blur(); dDoSearch(); } };
+let dTimer; dSearch.oninput = () => { clearTimeout(dTimer); dTimer = setTimeout(() => { if (dSearch.value.trim().length >= 2) dDoSearch(); }, 350); };
+dMore.onclick = () => { D.shown += 120; dRenderList(); };
 
 renderUser();
 go();
